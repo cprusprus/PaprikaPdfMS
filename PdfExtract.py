@@ -9,6 +9,24 @@ import math
 import glob
 import os
 
+def GetIngredients(rect):
+    #import pdb; pdb.set_trace()
+    ingredients = []
+    ingredientsText = page.get_textbox(rect)
+    ingredientsParts = ingredientsText.split("\n")
+
+    ingredientText = ""
+    for i, ingredient in enumerate(ingredientsParts):
+        if ingredient == "•":
+            ingredientText = ingredientText.strip()
+            ingredientText = ingredientText.replace("- ", "-")      # Cater for columns ending in - (hyphenated words)
+            ingredients.append(ingredientText)
+            ingredientText = ""
+        elif len(ingredient) > 3:       # Skip words which are footnote annotations for allergens (e.g. 1,2)
+            ingredientText += ingredient + " "
+
+    return ingredients
+
 # PyMuPDF words format is (x0, y0, x1, y1, "word", block_no, line_no, word_no)
 indexX0 = 0
 indexY0 = 1
@@ -31,24 +49,25 @@ with open(yamlFileName, "w", encoding="utf-8") as yamlFile:
         titleRect = (0, 300, 390, 560)
         titleText = page.get_textbox(titleRect)
         titleText = titleText.replace("\n", " ")
-        
+
         timeServingsRect = (0, 565, 390, 590)
         timeServingsText = page.get_textbox(timeServingsRect)
         timeServings = timeServingsText.split("\n")
         recipeTime = timeServings[0].replace("ca.", "").strip()
         servings = timeServings[1].replace("Servings", "").strip()
-        
-        filename = file.replace("C:\\pdf\\", "")    
+
+        filename = file.replace("C:\\pdf\\", "")
         indexNumEnd = filename.index("_-_")
         recipeNumber = filename[2:indexNumEnd]
         sourceUrl = "https://marleyspoon.com/media/pdf/recipe_cards/" + recipeNumber + "/" + filename
-        
+
         page = doc[1]       # Second page
         #text = page.get_text()      # Get plain text encoded as UTF-8
         words = page.get_text("words")      # List of words on page
 
         # MarleySpoon region for ingredients is (x0, y0, x1, y1) = (0, 0, 200, variable) so find y1 above "What you need"
         ingredientsRect = [0, 60, 200, 0]
+        whatNeedRect = [0, 0, 200, 0]
         step1Rect = (210, 0, 780, 150)
         step4Rect = [210, 300, 780, 0]
 
@@ -68,7 +87,10 @@ with open(yamlFileName, "w", encoding="utf-8") as yamlFile:
         for i, word in enumerate(words):
             if word[indexWord] == "What" and words[i+1][indexWord] == "you" and words[i+2][indexWord] == "need":
                 ingredientsRect[indexY1] = math.floor(word[indexY0])
-            if word[indexWord] == "Nutrition" and words[i+1][indexWord] == "per" and words[i+2][indexWord] == "serving":
+                whatNeedRect[indexY0] = math.ceil(word[indexY1])
+            elif word[indexWord] == "Tools":
+                whatNeedRect[indexY1] = math.floor(word[indexY0])
+            elif word[indexWord] == "Nutrition" and words[i+1][indexWord] == "per" and words[i+2][indexWord] == "serving":
                 calories = words[i+4][indexWord]
                 calories = calories.replace("kcal", "").replace(",", "")
                 fat = words[i+6][indexWord]
@@ -77,7 +99,7 @@ with open(yamlFileName, "w", encoding="utf-8") as yamlFile:
                 carbs = carbs.replace("g", "").replace(",", "")
                 protein = words[i+10][indexWord]
                 protein = protein.replace("g", "").replace(",", "")
-            if word[indexWord] == "4." and words[i-1][indexWord] != "step":
+            elif word[indexWord] == "4." and words[i-1][indexWord] != "step":
                 #import pdb; pdb.set_trace()
                 step4Rect[indexY1] = math.ceil(word[indexY1])
                 directionsRects[3][indexY0] = step4Rect[indexY1] + 1
@@ -92,7 +114,7 @@ with open(yamlFileName, "w", encoding="utf-8") as yamlFile:
 
         bottomSteps = page.get_textbox(step4Rect)
         bottomSteps = bottomSteps.split("\n")
-        
+
         directions = []
         for directionRect in directionsRects:
             directionsText = page.get_textbox(directionRect)
@@ -100,22 +122,12 @@ with open(yamlFileName, "w", encoding="utf-8") as yamlFile:
             directions.append(directionsText)
 
         #import pdb; pdb.set_trace()
-        ingredients = []
-        ingredientsText = page.get_textbox(ingredientsRect)
-        ingredientsParts = ingredientsText.split("\n")
-
-        ingredientText = ""
-        for i, ingredient in enumerate(ingredientsParts):
-            if ingredient == "•":
-                ingredientText = ingredientText.strip()
-                ingredientText = ingredientText.replace("- ", "-")      # Cater for columns ending in - (hyphenated words)
-                ingredients.append(ingredientText)
-                ingredientText = ""
-            elif len(ingredient) > 3:       # Skip words which are footnote annotations for allergens (e.g. 1,2)
-                ingredientText += ingredient + " "
+        ingredients = GetIngredients(ingredientsRect)
+        whatNeed = GetIngredients(whatNeedRect)
+        ingredients += whatNeed
 
         #import pdb; pdb.set_trace()
-        
+
         # Generate Paprika YAML
         recipeHeader = [
             "\n",
@@ -125,15 +137,15 @@ with open(yamlFileName, "w", encoding="utf-8") as yamlFile:
             "  source_url: " + sourceUrl + "\n",
             "  total_time: " + recipeTime + "\n",
         ]
-        
+
         recipeIngredients = [
             "\n",
             "  ingredients: |\n",
         ]
-        
+
         for ingredient in ingredients:
             recipeIngredients.append("    " + ingredient + "\n")
-        
+
         recipeNutrition = [
             "\n",
             "  nutritional_info: |\n",
@@ -142,7 +154,7 @@ with open(yamlFileName, "w", encoding="utf-8") as yamlFile:
             "    Carbs: " + carbs + " g\n",
             "    Protein: " + protein + " g\n",
         ]
-        
+
         #import pdb; pdb.set_trace()
         recipeDirections = [
             "\n",
