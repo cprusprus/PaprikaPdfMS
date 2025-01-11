@@ -2,7 +2,7 @@
 # pip install PyMuPDF
 
 # https://www.paprikaapp.com/help/android#importrecipes
-# Generate Paprika YAML from MarleySpoon recipe PDFs
+# Generate Paprika YAML from MarleySpoon recipe PDFs in c:\pdf
 
 import pymupdf
 import math
