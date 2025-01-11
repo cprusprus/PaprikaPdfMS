@@ -8,6 +8,7 @@ import pymupdf
 import math
 import glob
 import os
+from base64 import b64encode
 
 def GetIngredients(rect):
     #import pdb; pdb.set_trace()
@@ -60,6 +61,18 @@ with open(yamlFileName, "w", encoding="utf-8") as yamlFile:
         indexNumEnd = filename.index("_-_")
         recipeNumber = filename[2:indexNumEnd]
         sourceUrl = "https://marleyspoon.com/media/pdf/recipe_cards/" + recipeNumber + "/" + filename
+
+        #import pdb; pdb.set_trace()
+        images = page.get_images()
+        # Image reference format is (xref, smask, width, height, bpc, colorspace, alt_colorspace, name, filter, referencer)
+        imageXref = images[0][0]        # XRef for first image reference on page
+        image = doc.extract_image(imageXref)
+        # Show image dict keys with image.keys()
+        pixMap = pymupdf.Pixmap(image["image"])
+        pixMap.shrink(2)        # Downscale 3600x2400 pixel MarleySpoon images to 900x600
+        jpegResizedBytes = pixMap.tobytes("jpg", jpg_quality=50)
+        photoBase64 = b64encode(jpegResizedBytes)
+        photo = photoBase64.decode()        # Turn base64 encoded binary into a string
 
         page = doc[1]       # Second page
         #text = page.get_text()      # Get plain text encoded as UTF-8
@@ -126,8 +139,6 @@ with open(yamlFileName, "w", encoding="utf-8") as yamlFile:
         whatNeed = GetIngredients(whatNeedRect)
         ingredients += whatNeed
 
-        #import pdb; pdb.set_trace()
-
         # Generate Paprika YAML
         recipeHeader = [
             "\n",
@@ -178,8 +189,15 @@ with open(yamlFileName, "w", encoding="utf-8") as yamlFile:
             "    " + directions[5] + "\n",
         ]
 
+        recipePhoto = [
+            "\n",
+            "  photo: |\n",
+            "    " + photo + "\n",
+        ]
+
         #import pdb; pdb.set_trace()
         yamlFile.writelines(recipeHeader)
         yamlFile.writelines(recipeIngredients)
         yamlFile.writelines(recipeNutrition)
         yamlFile.writelines(recipeDirections)
+        yamlFile.writelines(recipePhoto)
