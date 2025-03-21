@@ -47,11 +47,11 @@ with open(yamlFileName, "w", encoding="utf-8") as yamlFile:
     for file in files:
         doc = pymupdf.open(file)
         page = doc[0]
-        titleRect = (0, 300, 390, 560)
+        titleRect = (0, 300, 390, 555)
         titleText = page.get_textbox(titleRect)
         titleText = titleText.replace("\n", " ")
 
-        timeServingsRect = (0, 565, 390, 590)
+        timeServingsRect = (0, 560, 390, 590)
         timeServingsText = page.get_textbox(timeServingsRect)
         timeServings = timeServingsText.split("\n")
         recipeTime = timeServings[0].replace("ca.", "").strip()
